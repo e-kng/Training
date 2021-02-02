@@ -1,4 +1,4 @@
-# ANALYSE FACTORIELLE DISCRIMINANTE
+# ANALYSE EN COMPOSANTE PRINCIPALE
 
 #########################################################################################################
 
@@ -8,10 +8,11 @@ path = 'C:/Users/Dwimo/Documents/05 DATA/00 GITHUB/Training/Human activity/Data/
 sep = ',' # séparateur de colonnes
 index = None # nom ou numero de colonne
 drop_col = ['subject', 'Activity'] # nom des colonnes à ignorer pour l'ACP
-nb_components = 2
+
+nb_components = 10 # nombre de composantes à calculer pour l'ACP
 
 # Affichage des figures (1 pour oui, 0 pour non)
-scree_plot = 1 # % de variance portée par les dimensions
+scree_plot = 0 # % de variance portée par les dimensions
 corr_circle = 0 # cercle des corrélations
 nb_dimensions = 2 # nombre de dimensions à afficher (2, 4, 6)
 data_plot = 1 # graphique des individus
@@ -23,9 +24,11 @@ var_color = 'Activity' # choix d'une variable pour colorer les individus
 import pandas as pd
 import numpy as np
 from sklearn import preprocessing
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn import decomposition
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+
 
 # Chargement des données
 raw_data = pd.read_csv(path, sep=sep, index_col=index)
@@ -41,11 +44,11 @@ std_scale = preprocessing.StandardScaler().fit(X)
 X_scaled = std_scale.transform(X)
 
 # Recherche des composantes principales
-lda = LinearDiscriminantAnalysis(solver='svd', n_components=nb_components)
-lda.fit(X_scaled, y)
+pca = decomposition.PCA(n_components=nb_components)
+pca.fit(X_scaled)
 
 # Projection des individus sur les axes factoriels
-X_projected = lda.transform(X_scaled)
+X_projected = pca.transform(X_scaled)
 
 # GRAPHIQUES
 plt.style.use('seaborn-whitegrid')
@@ -53,9 +56,9 @@ fontsize_axes = 12
 fontsize_ticks = 10
 fontsize_title = 14
 
-def display_scree_plot(lda):
+def display_scree_plot(pca):
     plt.figure(figsize=(8,5))
-    scree = lda.explained_variance_ratio_*100
+    scree = pca.explained_variance_ratio_*100
     plt.bar(np.arange(len(scree))+1, scree, color="#34738C")
 
     # legends
@@ -73,10 +76,10 @@ def display_scree_plot(lda):
     plt.show()
 
 if scree_plot == 1:
-    display_scree_plot(lda)
+    display_scree_plot(pca)
 
-def display_correlation_circle(lda, dim=(1,2)): 
-    pcs = lda.components_
+def display_correlation_circle(pca, dim=(1,2)): 
+    pcs = pca.components_
     
     # figure
     plt.figure(figsize=(6,5))
@@ -112,9 +115,9 @@ def display_correlation_circle(lda, dim=(1,2)):
     # legends
     cbar = plt.colorbar(pad=0.01)
     cbar.set_label('Norm', labelpad=5)
-    plt.xlabel('Dim{} ({}%)'.format(dim[0], round(100*lda.explained_variance_ratio_[dim[0]-1],1)), fontsize=fontsize_axes)
+    plt.xlabel('Dim{} ({}%)'.format(dim[0], round(100*pca.explained_variance_ratio_[dim[0]-1],1)), fontsize=fontsize_axes)
     plt.xticks(fontsize=fontsize_ticks)
-    plt.ylabel('Dim{} ({}%)'.format(dim[1], round(100*lda.explained_variance_ratio_[dim[1]-1],1)), fontsize=fontsize_axes)
+    plt.ylabel('Dim{} ({}%)'.format(dim[1], round(100*pca.explained_variance_ratio_[dim[1]-1],1)), fontsize=fontsize_axes)
     plt.yticks(fontsize=fontsize_ticks)
     plt.title("Correlation circle", fontsize=fontsize_title, loc='left')
 
@@ -126,13 +129,13 @@ def display_correlation_circle(lda, dim=(1,2)):
     plt.show()
 
 if corr_circle == 1:
-    display_correlation_circle(lda, dim=(1,2))
+    display_correlation_circle(pca, dim=(1,2))
     if nb_dimensions > 2:
-        display_correlation_circle(lda, dim=(3,4))
+        display_correlation_circle(pca, dim=(3,4))
         if nb_dimensions > 4:
-            display_correlation_circle(lda, dim=(5,6))
+            display_correlation_circle(pca, dim=(5,6))
 
-def display_projected_data(lda, dim=(1,2)):
+def display_projected_data(pca, X_projected, dim=(1,2)):
     # figure
     plt.figure(figsize=(8,5))
 
@@ -149,9 +152,9 @@ def display_projected_data(lda, dim=(1,2)):
     plt.ylim([ymin-0.5, ymax+0.5])
 
     # legends
-    plt.xlabel('Dim{} ({}%)'.format(dim[0], round(100*lda.explained_variance_ratio_[dim[0]-1],1)), fontsize=fontsize_axes)
+    plt.xlabel('Dim{} ({}%)'.format(dim[0], round(100*pca.explained_variance_ratio_[dim[0]-1],1)), fontsize=fontsize_axes)
     plt.xticks(fontsize=fontsize_ticks)
-    plt.ylabel('Dim{} ({}%)'.format(dim[1], round(100*lda.explained_variance_ratio_[dim[1]-1],1)), fontsize=fontsize_axes)
+    plt.ylabel('Dim{} ({}%)'.format(dim[1], round(100*pca.explained_variance_ratio_[dim[1]-1],1)), fontsize=fontsize_axes)
     plt.yticks(fontsize=fontsize_ticks)
     plt.title("Projected data", fontsize=fontsize_title, loc='left')
 
@@ -163,18 +166,9 @@ def display_projected_data(lda, dim=(1,2)):
     plt.show()
 
 if data_plot == 1:
-    display_projected_data(lda, dim=(1,2))
+    display_projected_data(pca, X_projected, dim=(1,2))
     if nb_dimensions > 2:
-        display_projected_data(lda, dim=(3,4))
+        display_projected_data(pca, X_projected, dim=(3,4))
         if nb_dimensions > 4:
-            display_projected_data(lda, dim=(5,6))
-
-# Prédiction
-
-X_test = pd.read_csv('Data/test.csv', sep=sep, index_col=index)
-y_test = X_test['Activity']
-X_test = X_test.drop(drop_col, axis=1)
-
-X_test_scaled = std_scale.transform(X_test)
-X_test = lda.transform(X_test)
+            display_projected_data(pca, X_projected, dim=(5,6))
 
